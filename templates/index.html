@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Notebook</h1>
+
+<p style="color:rgb(156, 156, 156)">Click <a href="/logout">here</a> to logout.</p>
+
+<h4>Instructions:</h4><br>For writing a new note, do not change an Id below. If you like to edit already saved note, inser corresponding the Id number below.</p>
+
+<form action="" method="post">
+  <input type="number" placeholder="Id (empty for new note)" name="id" value="{{ request.form.id }}">
+  <input type="text" placeholder="Title" name="title" value="{{ request.form.title }}">
+  <input type="text" placeholder="Content" name="post" value="{{ request.form.post }}">
+  <input class="btn btn-default" type="submit" value="SAVE">
+</form>
+
+<br>
+<h3>Notes:</h3>
+{% for post in posts %}
+  <strong>ID:</strong> {{ post.id }} |<strong> Title: </strong>{{ post.title }} |<strong> Post: </strong>{{ post.description }} <br>
+<br>
+{% endfor %}
+
+
+
+{% endblock %}
