@@ -47,7 +47,7 @@ def home():
             error = "Please do not enter a negative Id."
 
         if sql_command and title and description:
-            with sqlite3.connect("sample.db") as connection:
+            with sqlite3.connect("notes.db") as connection:
                 c = connection.cursor()
                 c.execute(sql_command)
             flash(f"A new note with Id {len(posts)} has been added.")
@@ -70,7 +70,8 @@ def login():
     error = None
     if request.method == 'POST':
         if request.form['username'] != 'admin' or request.form['password'] != 'admin':
-            error = 'Invalid Credentials. Please try again. Hint: Use admin:admin to log in.'
+            error = 'Invalid Credentials. Please try again.'
+            flash("Use (admin:admin) to log in.") # delete before deploying
         else:
             session['logged_in'] = True
             flash("You are just logged in!")
