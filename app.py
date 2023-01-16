@@ -30,7 +30,7 @@ def home():
     g.db = connect_db()
     cur = g.db.execute('SELECT * FROM posts')
 
-    posts = [dict(id=row[0], title=row[1], description=row[2]) for i,row in enumerate(cur.fetchall())]
+    posts = [dict(id=row[0], title=row[1], description=row[2]) for row in cur.fetchall()]
     g.db.close()
     error, sql_command = "", ""
 
@@ -40,7 +40,7 @@ def home():
         description = request.form.get("post")
 
         if not id or id == str(len(posts)):
-            sql_command = f"INSERT INTO posts VALUES('{len(posts)}','{title}', '{description}')"
+            sql_command = f"INSERT INTO posts VALUES(NULL,'{title}', '{description}')"
         elif not id.startswith("-"):
             sql_command = f"UPDATE posts SET title='{title}', description='{description}' WHERE id={id}"
         else:
@@ -50,7 +50,7 @@ def home():
             with sqlite3.connect("notes.db") as connection:
                 c = connection.cursor()
                 c.execute(sql_command)
-            flash(f"A new note with Id {len(posts)} has been added.")
+            flash(f"A new note with Id {len(posts)+1} has been added.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
             return redirect(url_for('home'))
         else:
             error = "Before adding or changing a note, enter the Title and add the Content!"
