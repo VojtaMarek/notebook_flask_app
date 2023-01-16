@@ -40,16 +40,17 @@ def home():
         description = request.form.get("post")
 
         if not id or id == str(len(posts)):
-            sql_command = f"INSERT INTO posts VALUES(NULL,'{title}', '{description}')"
+            sql_command = ("INSERT INTO posts VALUES(NULL, :title, :description)")
         elif not id.startswith("-"):
-            sql_command = f"UPDATE posts SET title='{title}', description='{description}' WHERE id={id}"
+            sql_command = f"UPDATE posts SET title=:title, description=:description WHERE id=:id"
         else:
             error = "Please do not enter a negative Id."
 
         if sql_command and title and description:
             with sqlite3.connect("notes.db") as connection:
                 c = connection.cursor()
-                c.execute(sql_command)
+                #c.execute(sql_command)
+                c.execute(sql_command, {"id": id, "title": title, "description": description})
             flash(f"A new note with Id {len(posts)+1} has been added.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
             return redirect(url_for('home'))
         else:
