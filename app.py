@@ -40,9 +40,9 @@ def home():
         description = request.form.get("post")
 
         if not id or id == str(len(posts)):
-            sql_command = ("INSERT INTO posts VALUES(NULL, :title, :description)")
+            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
         elif not id.startswith("-"):
-            sql_command = f"UPDATE posts SET title=:title, description=:description WHERE id=:id"
+            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
         else:
             error = "Please do not enter a negative Id."
 
@@ -51,7 +51,7 @@ def home():
                 c = connection.cursor()
                 #c.execute(sql_command)
                 c.execute(sql_command, {"id": id, "title": title, "description": description})
-            flash(f"A new note with Id {len(posts)+1} has been added.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
+            flash(f"A note with Id {id or len(posts)+1} has been added/editted.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
             return redirect(url_for('home'))
         else:
             error = "Before adding or changing a note, enter the Title and add the Content!"
