@@ -33,31 +33,37 @@ def home():
     posts = [dict(id=row[0], title=row[1], description=row[2]) for row in cur.fetchall()]
     g.db.close()
     error, sql_command = "", ""
+    id_is_positive = True
 
     if request.method == 'POST':
         id = request.form.get("id")
         title = request.form.get("title")
         description = request.form.get("post")
 
-        if not id or id == str(len(posts)):
-            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
-        elif not id.startswith("-"):
-            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
-        else:
-            error = "Please do not enter a negative Id."
+        next_id_str = str(len(posts)+1)
+        if not id: id = next_id_str
 
-        if sql_command and title and description:
+        if id.startswith("-") or id == "0":
+            id_is_positive = False
+        elif int(id) >= int(next_id_str):
+            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
+        elif int(id) > int(next_id_str):
+            id = next_id_str
+        else:
+            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
+            
+
+        if not id_is_positive:
+            error = "Please enter a positive Id number."
+        elif not title or not description:
+            error = "Before adding or changing a note, enter the Title and add the Content!"
+        elif sql_command:
             with sqlite3.connect("notes.db") as connection:
                 c = connection.cursor()
-                #c.execute(sql_command)
                 c.execute(sql_command, {"id": id, "title": title, "description": description})
-            flash(f"A note with Id {id or len(posts)+1} has been added/editted.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
-            return redirect(url_for('home'))
-        else:
-            error = "Before adding or changing a note, enter the Title and add the Content!"
-        
-        
-    
+            flash(f"A note with Id {id or next_id_str} has been added/editted.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
+            return redirect(url_for('home'))            
+
     return render_template("index.html", posts=posts, error=error)
 
 
