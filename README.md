@@ -1,3 +1,3 @@
 # notebook_flask_app
 
-Web application for saveing notes using flask and sqlite database.
+Web application for saving notes using flask and sqlite database.
