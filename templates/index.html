@@ -7,7 +7,7 @@
 <h4>Instructions:</h4>For writing a new note, do not change an Id below. If you like to edit already saved note, insert the corresponding Id number below.</p>
 <br>
 
-<form action="" method="post">
+<form action="{{ url_for('save_note') }}" method="post">
   <input type="number" placeholder="Id (empty for new note)" name="id" value="{{ request.form.id }}">
   <input type="text" placeholder="Title" name="title" value="{{ request.form.title }}">
   <input type="text" placeholder="Content" name="post" value="{{ request.form.post }}">

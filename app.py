@@ -25,53 +25,65 @@ def login_required(f):
     return wrap
 
 
-@app.route('/',  methods=['GET', 'POST'])
+@app.route('/',  methods=['GET'])
 @login_required
 def home():
+    posts = get_posts()
+    return render_template("index.html", posts=posts, error=None)
+
+
+@app.route('/save',  methods=['POST'])
+@login_required
+def save_note():
+    error: Optional[str] = None
+    sql_command: Optional[str] = None
+
+    note_id: Optional[str] = request.form.get("id") or None
+    title: Optional[str] = request.form.get("title")
+    description: Optional[str] = request.form.get("post")
+
+    posts = get_posts()
+
+    ids: set = {post.get('id') for post in posts}
+    next_id: str = str(max(ids) + 1) if ids else '1'
+    note_id: str = str(next_id) if not note_id else note_id
+
+    if note_id.startswith("-") or note_id == '0':
+        error = 'Please enter a positive Id number.'
+    elif int(note_id) in ids:
+        post = next((post for post in posts if post.get('id') == int(note_id)), None)
+        if post and title == post.get('title') and description == post.get('description'):
+            error = 'No changes detected. Please make some changes to update the note.'
+        else:
+            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
+    else:
+        sql_command = "INSERT INTO posts (id, title, description) VALUES(:id, :title, :description)"
+
+    if sql_command:
+        try:
+            with sqlite3.connect("notes.db") as connection:
+                c = connection.cursor()
+                c.execute(sql_command, {"id": note_id, "title": title, "description": description})
+                connection.commit()
+            flash(f'A note with Id {note_id} has been added/edited.')
+            return redirect(url_for('home'))
+        except sqlite3.Error as e:
+            error = f'An error occurred while adding/editing the note: {e}'
+
+    return render_template("index.html", posts=posts, error=error)
+
+
+def get_posts():
     try:
         with sqlite3.connect("notes.db") as connection:
             c = connection.cursor()
             c.execute("SELECT * FROM posts")
-            posts = [dict(id=row[0], title=row[1], description=row[2]) for row in c.fetchall()]
+            connection.commit()
+        posts = [dict(id=row[0], title=row[1], description=row[2]) for row in c.fetchall()]
     except sqlite3.Error as e:
         flash(f'An error occurred while fetching notes: {e}')
         posts = []
-
-    error: Optional[str] = None
-    sql_command: Optional[str] = None
-
-    if request.method == 'POST':
-        note_id: Optional[str] = request.form.get("id") or None
-        title: Optional[str] = request.form.get("title")
-        description: Optional[str] = request.form.get("post")
-
-        ids: set = {post.get('id') for post in posts}
-        next_id: str = str(max(ids) + 1) if ids else '1'
-        note_id: str = str(next_id) if not note_id else note_id
-
-        if note_id.startswith("-") or note_id == '0':
-            error = 'Please enter a positive Id number.'
-        elif int(note_id) in ids:
-            post = next((post for post in posts if post.get('id') == int(note_id)), None)
-            if post and title == post.get('title') and description == post.get('description'):
-                error = 'No changes detected. Please make some changes to update the note.'
-            else:
-                sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
-        else:
-            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
-
-        if sql_command:
-            try:
-                with sqlite3.connect("notes.db") as connection:
-                    c = connection.cursor()
-                    c.execute(sql_command, {"id": note_id, "title": title, "description": description})
-                    connection.commit()
-                flash(f'A note with Id {note_id} has been added/editted.')
-                return redirect(url_for('home'))
-            except sqlite3.Error as e:
-                error = f'An error occurred while adding/editing the note: {e}'
-
-    return render_template("index.html", posts=posts, error=error)
+    return posts
 
 
 @login_required
