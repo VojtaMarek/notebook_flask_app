@@ -6,9 +6,10 @@ Web application for saving notes using flask and sqlite database.
 from flask import Flask, render_template, request, url_for, redirect, session, flash, g
 from functools import wraps
 import sqlite3
+from typing import Optional
 
 
-app =  Flask(__name__)
+app = Flask(__name__)
 app.secret_key = 'set_your_own_secret_key'
 app.database = "notes.db"
 
@@ -27,42 +28,48 @@ def login_required(f):
 @app.route('/',  methods=['GET', 'POST'])
 @login_required
 def home():
-    g.db = connect_db()
-    cur = g.db.execute('SELECT * FROM posts')
+    try:
+        with sqlite3.connect("notes.db") as connection:
+            c = connection.cursor()
+            c.execute("SELECT * FROM posts")
+            posts = [dict(id=row[0], title=row[1], description=row[2]) for row in c.fetchall()]
+    except sqlite3.Error as e:
+        flash(f'An error occurred while fetching notes: {e}')
+        posts = []
 
-    posts = [dict(id=row[0], title=row[1], description=row[2]) for row in cur.fetchall()]
-    g.db.close()
-    error, sql_command = "", ""
-    id_is_positive = True
+    error: Optional[str] = None
+    sql_command: Optional[str] = None
 
     if request.method == 'POST':
-        id = request.form.get("id")
-        title = request.form.get("title")
-        description = request.form.get("post")
+        note_id: Optional[str] = request.form.get("id") or None
+        title: Optional[str] = request.form.get("title")
+        description: Optional[str] = request.form.get("post")
 
-        next_id_str = str(len(posts)+1)
-        if not id: id = next_id_str
+        ids: set = {post.get('id') for post in posts}
+        next_id: str = str(max(ids) + 1) if ids else '1'
+        note_id: str = str(next_id) if not note_id else note_id
 
-        if id.startswith("-") or id == "0":
-            id_is_positive = False
-        elif int(id) >= int(next_id_str):
-            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
-        elif int(id) > int(next_id_str):
-            id = next_id_str
+        if note_id.startswith("-") or note_id == '0':
+            error = 'Please enter a positive Id number.'
+        elif int(note_id) in ids:
+            post = next((post for post in posts if post.get('id') == int(note_id)), None)
+            if post and title == post.get('title') and description == post.get('description'):
+                error = 'No changes detected. Please make some changes to update the note.'
+            else:
+                sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
         else:
-            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
-            
+            sql_command = "INSERT INTO posts (title, description) VALUES(:title, :description)"
 
-        if not id_is_positive:
-            error = "Please enter a positive Id number."
-        elif not title or not description:
-            error = "Before adding or changing a note, enter the Title and add the Content!"
-        elif sql_command:
-            with sqlite3.connect("notes.db") as connection:
-                c = connection.cursor()
-                c.execute(sql_command, {"id": id, "title": title, "description": description})
-            flash(f"A note with Id {id or next_id_str} has been added/editted.") # use SQL insted of len(posts)+1; c.execute('SELECT MAX(id) FROM posts')
-            return redirect(url_for('home'))            
+        if sql_command:
+            try:
+                with sqlite3.connect("notes.db") as connection:
+                    c = connection.cursor()
+                    c.execute(sql_command, {"id": note_id, "title": title, "description": description})
+                    connection.commit()
+                flash(f'A note with Id {note_id} has been added/editted.')
+                return redirect(url_for('home'))
+            except sqlite3.Error as e:
+                error = f'An error occurred while adding/editing the note: {e}'
 
     return render_template("index.html", posts=posts, error=error)
 
@@ -76,9 +83,9 @@ def delete_note(note_id):
             c = connection.cursor()
             c.execute("DELETE FROM posts WHERE id=:id", {"id": note_id})
             connection.commit()
-        flash(f"Note with ID {note_id} has been deleted")
-    except sqlite3.error as e:
-        flash(f"An error occurred while deleting the note: {e}")
+        flash(f'Note with ID {note_id} has been deleted')
+    except sqlite3.Error as e:
+        flash(f'An error occurred while deleting the note: {e}')
     return redirect(url_for('home'))
 
 
@@ -93,10 +100,10 @@ def login():
     if request.method == 'POST':
         if request.form['username'] != 'admin' or request.form['password'] != 'admin':
             error = 'Invalid Credentials. Please try again.'
-            flash("Use (admin:admin) to log in.") # delete before deploying
+            flash('Use (admin:admin) to log in.')  # delete before deploying
         else:
             session['logged_in'] = True
-            flash("You are just logged in!")
+            flash('You are just logged in!')
             return redirect(url_for('home'))
     return render_template('login.html', error=error)
 
