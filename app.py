@@ -1,6 +1,6 @@
 """
 notebook_flask_app
-Web application for saveing notes using flask and sqlite database.
+Web application for saving notes using flask and sqlite database.
 """
 
 from flask import Flask, render_template, request, url_for, redirect, session, flash, g
@@ -65,6 +65,21 @@ def home():
             return redirect(url_for('home'))            
 
     return render_template("index.html", posts=posts, error=error)
+
+
+@login_required
+@app.route('/delete/<int:note_id>', methods=['POST'])
+def delete_note(note_id):
+    """Delete note by note_id"""
+    try:
+        with sqlite3.connect("notes.db") as connection:
+            c = connection.cursor()
+            c.execute("DELETE FROM posts WHERE id=:id", {"id": note_id})
+            connection.commit()
+        flash(f"Note with ID {note_id} has been deleted")
+    except sqlite3.error as e:
+        flash(f"An error occurred while deleting the note: {e}")
+    return redirect(url_for('home'))
 
 
 @app.route('/welcome')

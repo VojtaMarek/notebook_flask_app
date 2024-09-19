@@ -17,7 +17,12 @@
 <br>
 <h3>Notes:</h3>
 {% for post in posts %}
-  <strong>ID:</strong> {{ post.id }} |<strong> Title: </strong>{{ post.title }} |<strong> Post: </strong>{{ post.description }} <br>
+  <strong>ID:</strong> {{ post.id }} |<strong> Title: </strong>{{ post.title }} |<strong> Post: </strong>{{ post.description }} 
+  <form action="{{ url_for('delete_note', note_id=post.id) }}" method="post" style="display:inline;">
+    <input class="btn btn-danger" type="submit" value="x">
+  </form>
+<br><br>
+  <br>
 <br>
 {% endfor %}
 
