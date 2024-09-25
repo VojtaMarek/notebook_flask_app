@@ -3,15 +3,19 @@ notebook_flask_app
 Web application for saving notes using flask and sqlite database.
 """
 
-from flask import Flask, render_template, request, url_for, redirect, session, flash, g
+from flask import Flask, render_template, request, url_for, redirect, session, flash
 from functools import wraps
 import sqlite3
-from typing import Optional
+from typing import Optional, Type
+
+from sql import DatabaseManager, Post
 
 
 app = Flask(__name__)
 app.secret_key = 'set_your_own_secret_key'
-app.database = "notes.db"
+app.database = 'notes.db'
+
+db_manager = DatabaseManager()
 
 
 def login_required(f):
@@ -28,62 +32,37 @@ def login_required(f):
 @app.route('/',  methods=['GET'])
 @login_required
 def home():
-    posts = get_posts()
+    posts: list[Type[Post]] = db_manager.get_posts()
     return render_template("index.html", posts=posts, error=None)
 
 
 @app.route('/save',  methods=['POST'])
 @login_required
 def save_note():
-    error: Optional[str] = None
-    sql_command: Optional[str] = None
-
     note_id: Optional[str] = request.form.get("id") or None
     title: Optional[str] = request.form.get("title")
     description: Optional[str] = request.form.get("post")
 
-    posts = get_posts()
+    posts: list[Type[Post]] = db_manager.get_posts()
 
-    ids: set = {post.get('id') for post in posts}
+    ids: set = {post.id for post in posts}
     next_id: str = str(max(ids) + 1) if ids else '1'
     note_id: str = str(next_id) if not note_id else note_id
 
     if note_id.startswith("-") or note_id == '0':
         error = 'Please enter a positive Id number.'
     elif int(note_id) in ids:
-        post = next((post for post in posts if post.get('id') == int(note_id)), None)
-        if post and title == post.get('title') and description == post.get('description'):
+        post = next((post for post in posts if post.id == int(note_id)), None)
+        if post and title == post.title and description == post.description:
             error = 'No changes detected. Please make some changes to update the note.'
         else:
-            sql_command = "UPDATE posts SET title=:title, description=:description WHERE id=:id"
-    else:
-        sql_command = "INSERT INTO posts (id, title, description) VALUES(:id, :title, :description)"
-
-    if sql_command:
-        try:
-            with sqlite3.connect("notes.db") as connection:
-                c = connection.cursor()
-                c.execute(sql_command, {"id": note_id, "title": title, "description": description})
-                connection.commit()
-            flash(f'A note with Id {note_id} has been added/edited.')
+            db_manager.update_post(Post(int(note_id), title, description))
             return redirect(url_for('home'))
-        except sqlite3.Error as e:
-            error = f'An error occurred while adding/editing the note: {e}'
+    else:
+        db_manager.inser_post(Post(int(note_id), title, description))
+        return redirect(url_for('home'))
 
     return render_template("index.html", posts=posts, error=error)
-
-
-def get_posts():
-    try:
-        with sqlite3.connect("notes.db") as connection:
-            c = connection.cursor()
-            c.execute("SELECT * FROM posts")
-            connection.commit()
-        posts = [dict(id=row[0], title=row[1], description=row[2]) for row in c.fetchall()]
-    except sqlite3.Error as e:
-        flash(f'An error occurred while fetching notes: {e}')
-        posts = []
-    return posts
 
 
 @login_required
@@ -91,12 +70,9 @@ def get_posts():
 def delete_note(note_id):
     """Delete note by note_id"""
     try:
-        with sqlite3.connect("notes.db") as connection:
-            c = connection.cursor()
-            c.execute("DELETE FROM posts WHERE id=:id", {"id": note_id})
-            connection.commit()
-        flash(f'Note with ID {note_id} has been deleted')
-    except sqlite3.Error as e:
+        msg: str = db_manager.delete_post(note_id)
+        flash(msg)
+    except Exception as e:
         flash(f'An error occurred while deleting the note: {e}')
     return redirect(url_for('home'))
 
@@ -126,10 +102,6 @@ def logout():
     session.pop('logged_in', None)
     flash("You are just logged out.")
     return redirect(url_for('welcome'))
-
-
-def connect_db():
-    return sqlite3.connect(app.database)
 
 
 if __name__ == '__main__':
